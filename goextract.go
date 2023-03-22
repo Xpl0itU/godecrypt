@@ -163,62 +163,59 @@ func iterateDirectory(f *os.File, iterStart uint32, count uint32, namesOffset in
 			iterateDirectory(f, i+1, fSize, namesOffset, depth+1, int32(fOffset), contentRecords, canExtract, tree)
 			tree = tree[:len(tree)-1]
 			i = fSize - 1
-		} else {
-			if inSlice("--extract", os.Args) && canExtract {
-				withC, err := os.Open(hex.EncodeToString(contentRecords[contentIndex].contentID) + ".app.dec")
-				if err != nil {
+		} else if inSlice("--extract", os.Args) && canExtract {
+			withC, err := os.Open(hex.EncodeToString(contentRecords[contentIndex].contentID) + ".app.dec")
+			if err != nil {
+				panic(err)
+			}
+			defer withC.Close()
+			withO, err := os.Create(strings.Join(tree, "") + fName)
+			if err != nil {
+				panic(err)
+			}
+			defer withO.Close()
+
+			_, err = withC.Seek(int64(fRealOffset), 0)
+			if err != nil {
+				panic(err)
+			}
+
+			buf := []byte{}
+			left := fSize
+
+			for left > 0 {
+				toRead := min(0x20, int(left))
+				readBuf := make([]byte, toRead)
+				_, err = withC.Read(readBuf)
+				if err != nil && err != io.EOF {
 					panic(err)
 				}
-				defer withC.Close()
-				withO, err := os.Create(strings.Join(tree, "") + fName)
-				if err != nil {
-					panic(err)
-				}
-				defer withO.Close()
+				buf = append(buf, readBuf...)
+				left -= uint32(toRead)
 
-				_, err = withC.Seek(int64(fRealOffset), 0)
-				if err != nil {
-					panic(err)
-				}
-
-				buf := []byte{}
-				left := fSize
-
-				for left > 0 {
-					toRead := min(0x20, int(left))
-					readBuf := make([]byte, toRead)
-					_, err = withC.Read(readBuf)
-					if err != nil && err != io.EOF {
-						panic(err)
-					}
-					buf = append(buf, readBuf...)
-					left -= uint32(toRead)
-
-					if len(buf) >= 0x200 {
-						_, err = withO.Write(buf)
-						if err != nil {
-							panic(err)
-						}
-						buf = []byte{}
-					}
-
-					withCOffset, _ := withC.Seek(0, os.SEEK_CUR)
-
-					if hasHashTree != 0 && withCOffset%0x10000 < 0x400 {
-						_, err = withC.Seek(0x400, 1)
-						if err != nil {
-							panic(err)
-						}
-					}
-				}
-
-				if len(buf) > 0 {
+				if len(buf) >= 0x200 {
 					_, err = withO.Write(buf)
 					if err != nil {
 						panic(err)
 					}
+					buf = []byte{}
 				}
 
+				withCOffset, _ := withC.Seek(0, os.SEEK_CUR)
+
+				if hasHashTree != 0 && withCOffset%0x10000 < 0x400 {
+					_, err = withC.Seek(0x400, 1)
+					if err != nil {
+						panic(err)
+					}
+				}
+			}
+
+			if len(buf) > 0 {
+				_, err = withO.Write(buf)
+				if err != nil {
+					panic(err)
+				}
 			}
 		}
 		i++

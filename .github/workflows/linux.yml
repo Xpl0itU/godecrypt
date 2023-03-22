@@ -1,0 +1,26 @@
+name: Linux
+
+on: push
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.20
+
+      - name: Build
+        run: |
+          go build ./src/main.go
+          mv main godecrypt
+
+      - name: Upload Linux Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: GoDecrypt-Linux
+          path: godecrypt
+          if-no-files-found: warn

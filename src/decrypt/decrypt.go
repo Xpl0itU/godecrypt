@@ -1,4 +1,4 @@
-package main
+package decrypt
 
 import (
 	"crypto/aes"
@@ -14,11 +14,11 @@ import (
 )
 
 type Content struct {
-    contentID []byte
+	contentID    []byte
 	contentIndex []byte
-	contentType uint16
-	contentSize uint64
-	contentHash []byte
+	contentType  uint16
+	contentSize  uint64
+	contentHash  []byte
 }
 
 var wiiuCommonKey = "d7b00402659ba2abd2cb0db27fa2b656"
@@ -35,7 +35,7 @@ func Equal(a, b []byte) bool {
 	return true
 }
 
-func main() {
+func Decrypt() {
 	// Hash the common key and check if it matches the expected value
 	wiiuCommonKeyHash := sha1.Sum([]byte(wiiuCommonKey))
 	if hex.EncodeToString(wiiuCommonKeyHash[:]) != "abc0a5faf6181a137a7f8cc9950e451250878e8f" {
@@ -150,46 +150,46 @@ func main() {
 
 	fmt.Printf("Decrypted Titlekey: %x\n", decryptedTitleKey)
 	for _, c := range contents {
-        fmt.Printf("Decrypting %v...\n", hex.EncodeToString(c.contentID))
+		fmt.Printf("Decrypting %v...\n", hex.EncodeToString(c.contentID))
 
-        left, err := os.Stat(hex.EncodeToString(c.contentID) + ".app")
-        if err != nil {
-            panic(err)
-        }
-        leftSize := left.Size()
+		left, err := os.Stat(hex.EncodeToString(c.contentID) + ".app")
+		if err != nil {
+			panic(err)
+		}
+		leftSize := left.Size()
 
-        //leftHash := c.contentHash
+		//leftHash := c.contentHash
 
-        if c.contentType&2 != 0 { // if has a hash tree
-            chunkCount := leftSize / 0x10000
-            //chunkNum := int64(0)
-            h3Bytes, err := ioutil.ReadFile(hex.EncodeToString(c.contentID) + ".h3")
-            if err != nil {
-                panic(err)
-            }
-			h3BytesSHASum := sha1.Sum(h3Bytes)
-            if hex.EncodeToString(h3BytesSHASum[:]) != hex.EncodeToString(c.contentHash) {
-                fmt.Println("H3 Hash mismatch!")
-                fmt.Println(" > TMD:    " + hex.EncodeToString(c.contentHash))
-                fmt.Println(" > Result: " + hex.EncodeToString(h3BytesSHASum[:]))
-            }
-
-            h0HashNum := int64(0)
-            h1HashNum := int64(0)
-            h2HashNum := int64(0)
-            h3HashNum := int64(0)
-
-            encryptedFile, err := os.Open(hex.EncodeToString(c.contentID) + ".app")
-            if err != nil {
-                panic(err)
-            }
-            defer encryptedFile.Close()
-
-            decryptedFile, err := os.Create(hex.EncodeToString(c.contentID) + ".app.dec")
+		if c.contentType&2 != 0 { // if has a hash tree
+			chunkCount := leftSize / 0x10000
+			//chunkNum := int64(0)
+			h3Bytes, err := ioutil.ReadFile(hex.EncodeToString(c.contentID) + ".h3")
 			if err != nil {
-                panic(err)
-            }
-            defer decryptedFile.Close()
+				panic(err)
+			}
+			h3BytesSHASum := sha1.Sum(h3Bytes)
+			if hex.EncodeToString(h3BytesSHASum[:]) != hex.EncodeToString(c.contentHash) {
+				fmt.Println("H3 Hash mismatch!")
+				fmt.Println(" > TMD:    " + hex.EncodeToString(c.contentHash))
+				fmt.Println(" > Result: " + hex.EncodeToString(h3BytesSHASum[:]))
+			}
+
+			h0HashNum := int64(0)
+			h1HashNum := int64(0)
+			h2HashNum := int64(0)
+			h3HashNum := int64(0)
+
+			encryptedFile, err := os.Open(hex.EncodeToString(c.contentID) + ".app")
+			if err != nil {
+				panic(err)
+			}
+			defer encryptedFile.Close()
+
+			decryptedFile, err := os.Create(hex.EncodeToString(c.contentID) + ".app.dec")
+			if err != nil {
+				panic(err)
+			}
+			defer decryptedFile.Close()
 
 			for chunkNum := 0; int64(chunkNum) < chunkCount; chunkNum++ {
 				// decrypt and verify hash tree
@@ -213,10 +213,10 @@ func main() {
 				h2Hashes := hashTree[0x280:0x3c0]*/
 
 				h0Hash := h0Hashes[(h0HashNum * 0x14):((h0HashNum + 1) * 0x14)]
-                /*h1Hash := h1Hashes[(h1HashNum * 0x14):((h1HashNum + 1) * 0x14)]
-                h2Hash := h2Hashes[(h2HashNum * 0x14):((h2HashNum + 1) * 0x14)]
-                h3Hash := h3Bytes[(h3HashNum * 0x14):((h3HashNum + 1) * 0x14)]*/
-				
+				/*h1Hash := h1Hashes[(h1HashNum * 0x14):((h1HashNum + 1) * 0x14)]
+				  h2Hash := h2Hashes[(h2HashNum * 0x14):((h2HashNum + 1) * 0x14)]
+				  h3Hash := h3Bytes[(h3HashNum * 0x14):((h3HashNum + 1) * 0x14)]*/
+
 				/*h0HashesHash := sha1.Sum(h0Hashes)
 				if !Equal(h0HashesHash[:], h1Hash) {
 					fmt.Printf("\rH0 Hashes invalid in chunk %v\n", chunkNum)
@@ -244,7 +244,7 @@ func main() {
 				}
 
 				cbc := cipher.NewCBCDecrypter(cipherContent, iv)
-    			cbc.CryptBlocks(decryptedData, decryptedData)
+				cbc.CryptBlocks(decryptedData, decryptedData)
 
 				/*decryptedDataHash := sha1.Sum(decryptedData)
 				if !Equal(decryptedDataHash[:], h0Hash) {
@@ -253,17 +253,17 @@ func main() {
 				decryptedFile.Write(hashTree)
 				decryptedFile.Write(decryptedData)
 				h0HashNum += 1
-                if h0HashNum >= 16 {
+				if h0HashNum >= 16 {
 					h0HashNum = 0
-                    h1HashNum += 1
+					h1HashNum += 1
 				}
-                if h1HashNum >= 16 {
+				if h1HashNum >= 16 {
 					h1HashNum = 0
-                    h2HashNum += 1
+					h2HashNum += 1
 				}
-                if h2HashNum >= 16 {
+				if h2HashNum >= 16 {
 					h2HashNum = 0
-                    h3HashNum += 1
+					h3HashNum += 1
 				}
 			}
 		} else {
@@ -289,7 +289,7 @@ func main() {
 			}
 			defer decrypted.Close()
 
-			for i := 0; i <= int(math.Floor(float64(int64(c.contentSize) / int64(readSize)))+1); i++ {
+			for i := 0; i <= int(math.Floor(float64(int64(c.contentSize)/int64(readSize)))+1); i++ {
 				toRead := int64(math.Min(float64(readSize), float64(left)))
 				toReadHash := int64(math.Min(float64(readSize), float64(leftHash)))
 

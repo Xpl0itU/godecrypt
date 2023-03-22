@@ -1,4 +1,4 @@
-package main
+package extract
 
 import (
 	"encoding/binary"
@@ -163,7 +163,7 @@ func iterateDirectory(f *os.File, iterStart uint32, count uint32, namesOffset in
 			iterateDirectory(f, i+1, fSize, namesOffset, depth+1, int32(fOffset), contentRecords, canExtract, tree)
 			tree = tree[:len(tree)-1]
 			i = fSize - 1
-		} else if inSlice("--extract", os.Args) && canExtract {
+		} else if canExtract {
 			withC, err := os.Open(hex.EncodeToString(contentRecords[contentIndex].contentID) + ".app.dec")
 			if err != nil {
 				panic(err)
@@ -223,7 +223,7 @@ func iterateDirectory(f *os.File, iterStart uint32, count uint32, namesOffset in
 	return i
 }
 
-func main() {
+func Extract() {
 	var contentCount uint16
 	tmd, err := os.Open("title.tmd")
 	if err != nil {

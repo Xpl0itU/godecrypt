@@ -12,9 +12,9 @@ import (
 )
 
 type Content struct {
-    contentID []byte
+	contentID    []byte
 	contentIndex []byte
-	contentType uint16
+	contentType  uint16
 }
 
 func readInt(f *os.File, s int) uint32 {
@@ -53,7 +53,7 @@ func inSlice(s string, str []string) bool {
 }
 
 func ifThenElse(condition bool, ret1 string, ret2 string) string {
-	if(condition) {
+	if condition {
 		return ret1
 	} else {
 		return ret2
@@ -66,7 +66,7 @@ func iterateDirectory(f *os.File, iterStart uint32, count uint32, namesOffset in
 		entryOffset, _ := f.Seek(0, os.SEEK_CUR)
 		fType := make([]byte, 1)
 		f.Read(fType)
-		isDir := fType[0]&1 & 1
+		isDir := fType[0] & 1 & 1
 
 		nameOffset := int64(readInt(f, 3)) + namesOffset
 		origOffset, _ := f.Seek(0, os.SEEK_CUR)
@@ -236,8 +236,8 @@ func main() {
 	fst.Seek(8, os.SEEK_CUR)
 	totalEntries := readInt(fst, 4)
 	fst.Seek(4, os.SEEK_CUR)
-	namesOffset := fileEntriesOffset + int64(totalEntries * 0x10)
+	namesOffset := fileEntriesOffset + int64(totalEntries*0x10)
 
 	var tree []string
-	iterateDirectory(fst, 1, uint32(contentCount), namesOffset, 0, -1, contents, canExtract, tree)
+	iterateDirectory(fst, 1, totalEntries, namesOffset, 0, -1, contents, canExtract, tree)
 }

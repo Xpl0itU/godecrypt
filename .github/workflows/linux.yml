@@ -15,6 +15,7 @@ jobs:
 
       - name: Build
         run: |
+          go mod download
           go build ./src/...
           mv main godecrypt
 

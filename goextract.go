@@ -84,13 +84,12 @@ func fileChunkOffset(offset uint32) uint32 {
 	return actualOffset
 }
 
-func inSlice(s string, str []string) bool {
-	for _, v := range s {
-		if string(v) == strings.Join(str, "") {
+func inSlice(s string, slice []string) bool {
+	for _, v := range slice {
+		if v == s {
 			return true
 		}
 	}
-
 	return false
 }
 

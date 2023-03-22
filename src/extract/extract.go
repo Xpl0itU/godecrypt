@@ -8,6 +8,8 @@ import (
 	"math"
 	"os"
 	"strings"
+
+	"github.com/vardius/progress-go"
 )
 
 type Content struct {
@@ -15,6 +17,8 @@ type Content struct {
 	contentIndex []byte
 	contentType  uint16
 }
+
+var bar *progress.Bar
 
 func readInt(f io.ReadSeeker, s int) uint32 {
 	bufSize := 4 // Buffer size is always 4 for uint32
@@ -149,7 +153,7 @@ func iterateDirectory(f *os.File, iterStart uint32, count uint32, namesOffset in
 			toPrint += fmt.Sprintf("%s%s%s", strings.Repeat("  ", int(depth)), ifThenElse(isDir != 0, "* ", "- "), fName)
 		}
 		if (fType[0]&0x80 == 0) || inSlice("--all", os.Args) {
-			fmt.Println(toPrint, ifThenElse(fType[0]&0x80 != 0, " (deleted)", ""))
+			bar.Advance(1)
 		}
 
 		if isDir != 0 {
@@ -319,6 +323,17 @@ func Extract() {
 	totalEntries := readInt(fst, 4)
 	fst.Seek(4, os.SEEK_CUR)
 	namesOffset := fileEntriesOffset + int64(totalEntries*0x10)
+
+	bar = progress.New(0, int64(totalEntries), progress.Options{
+		Verbose: true,
+	})
+
+	_, _ = bar.Start()
+	defer func() {
+		if _, err := bar.Stop(); err != nil {
+			fmt.Printf("failed to finish progress: %v\n", err)
+		}
+	}()
 
 	var tree []string
 	iterateDirectory(fst, 1, totalEntries, namesOffset, 0, -1, contents, canExtract, tree)

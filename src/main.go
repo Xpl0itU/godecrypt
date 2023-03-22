@@ -17,8 +17,6 @@ func removeAppDecFiles() error {
 		err = os.Remove(file)
 		if err != nil {
 			fmt.Printf("Failed to remove file %s: %v\n", file, err)
-		} else {
-			fmt.Printf("Removed file %s\n", file)
 		}
 	}
 	return nil

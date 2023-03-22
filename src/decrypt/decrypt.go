@@ -314,7 +314,6 @@ func Decrypt() {
 					leftHash = 0
 				}
 				if left <= 0 {
-					fmt.Println("")
 					break
 				}
 			}

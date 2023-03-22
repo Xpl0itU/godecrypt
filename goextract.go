@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math"
 	"os"
 	"strings"
@@ -101,13 +100,20 @@ func ifThenElse(condition bool, ret1 string, ret2 string) string {
 	}
 }
 
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
 func iterateDirectory(f *os.File, iterStart uint32, count uint32, namesOffset int64, depth uint32, topdir int32, contentRecords []Content, canExtract bool, tree []string) uint32 {
 	i := iterStart
 	for i < count {
 		entryOffset, _ := f.Seek(0, os.SEEK_CUR)
 		fType := make([]byte, 1)
 		f.Read(fType)
-		isDir := fType[0] & 1 & 1
+		isDir := fType[0] & 1
 
 		nameOffset := int64(read3BytesBE(f)) + namesOffset
 
@@ -119,7 +125,7 @@ func iterateDirectory(f *os.File, iterStart uint32, count uint32, namesOffset in
 		fOffset := readInt(f, 4)
 		fSize := readInt(f, 4)
 		fFlags := readInt16(f, 2)
-		if fFlags&4 != 4 {
+		if fFlags&4 == 0 {
 			fOffset <<= 5
 		}
 
@@ -143,40 +149,76 @@ func iterateDirectory(f *os.File, iterStart uint32, count uint32, namesOffset in
 			toPrint += fmt.Sprintf("%s%s%s", strings.Repeat("  ", int(depth)), ifThenElse(isDir != 0, "* ", "- "), fName)
 		}
 		if (fType[0]&0x80 == 0) || inSlice("--all", os.Args) {
-			fmt.Println(toPrint, ifThenElse(fType[0]&0x80 == 0x80, " (deleted)", ""))
+			fmt.Println(toPrint, ifThenElse(fType[0]&0x80 != 0, " (deleted)", ""))
 		}
 
 		if isDir != 0 {
 			if int32(fOffset) <= topdir {
 				return i
 			}
-			tree = append(tree, ifThenElse(depth == 0, "", "/")+fName)
-		}
-		if isDir != 0 {
-			if int32(fOffset) <= topdir {
-				return i
+			tree = append(tree, fName+"/")
+			if canExtract && !inSlice("--no-extract", os.Args) {
+				os.MkdirAll(strings.Join(tree, ""), 0755)
 			}
-			tree = append(tree, ifThenElse(depth == 0, "", "/")+fName)
-			if inSlice("--extract", os.Args) && canExtract {
-				dirPath := strings.Join(tree, "/")
-				if _, err := os.Stat(dirPath); os.IsNotExist(err) {
-					os.MkdirAll(dirPath, 0755)
-				}
-			}
-			i = iterateDirectory(f, i+1, count, namesOffset, depth+1, int32(fOffset), contentRecords, canExtract, tree)
+			iterateDirectory(f, i+1, fSize, namesOffset, depth+1, int32(fOffset), contentRecords, canExtract, tree)
 			tree = tree[:len(tree)-1]
+			i = fSize - 1
 		} else {
 			if inSlice("--extract", os.Args) && canExtract {
-				filePath := strings.Join(tree, "/")
-				if _, err := os.Stat(filePath); os.IsNotExist(err) {
-					content := make([]byte, fSize)
-					f.Seek(int64(fRealOffset), os.SEEK_SET)
-					f.Read(content)
-					err := ioutil.WriteFile(filePath, content, 0644)
-					if err != nil {
-						fmt.Printf("Error extracting %s: %v\n", filePath, err)
+				withC, err := os.Open(hex.EncodeToString(contentRecords[contentIndex].contentID) + ".app.dec")
+				if err != nil {
+					panic(err)
+				}
+				defer withC.Close()
+				withO, err := os.Create(strings.Join(tree, "") + fName)
+				if err != nil {
+					panic(err)
+				}
+				defer withO.Close()
+
+				_, err = withC.Seek(int64(fRealOffset), 0)
+				if err != nil {
+					panic(err)
+				}
+
+				buf := []byte{}
+				left := fSize
+
+				for left > 0 {
+					toRead := min(0x20, int(left))
+					readBuf := make([]byte, toRead)
+					_, err = withC.Read(readBuf)
+					if err != nil && err != io.EOF {
+						panic(err)
+					}
+					buf = append(buf, readBuf...)
+					left -= uint32(toRead)
+
+					if len(buf) >= 0x200 {
+						_, err = withO.Write(buf)
+						if err != nil {
+							panic(err)
+						}
+						buf = []byte{}
+					}
+
+					withCOffset, _ := withC.Seek(0, os.SEEK_CUR)
+
+					if hasHashTree != 0 && withCOffset%0x10000 < 0x400 {
+						_, err = withC.Seek(0x400, 1)
+						if err != nil {
+							panic(err)
+						}
 					}
 				}
+
+				if len(buf) > 0 {
+					_, err = withO.Write(buf)
+					if err != nil {
+						panic(err)
+					}
+				}
+
 			}
 		}
 		i++

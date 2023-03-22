@@ -21,7 +21,7 @@ type Content struct {
 	contentHash []byte
 }
 
-var wiiuCommonKey = ""
+var wiiuCommonKey = "d7b00402659ba2abd2cb0db27fa2b656"
 
 func Equal(a, b []byte) bool {
 	if len(a) != len(b) {

@@ -17,10 +17,52 @@ type Content struct {
 	contentType  uint16
 }
 
-func readInt(f *os.File, s int) uint32 {
-	var num uint32
-	binary.Read(f, binary.BigEndian, &num)
-	return num
+func readInt(f io.ReadSeeker, s int) uint32 {
+	bufSize := 4 // Buffer size is always 4 for uint32
+	buf := make([]byte, bufSize)
+
+	n, err := f.Read(buf[:s])
+	if err != nil {
+		panic(err)
+	}
+
+	if n < s {
+		// If we didn't read the expected number of bytes, seek back to the
+		// previous position in the file and return an error.
+		if _, err := f.Seek(int64(-n), os.SEEK_CUR); err != nil {
+			panic(err)
+		}
+		panic(io.ErrUnexpectedEOF)
+	}
+
+	return binary.BigEndian.Uint32(buf)
+}
+
+func readInt16(f io.ReadSeeker, s int) uint16 {
+	bufSize := 2 // Buffer size is always 2 for uint16
+	buf := make([]byte, bufSize)
+
+	n, err := f.Read(buf[:s])
+	if err != nil {
+		panic(err)
+	}
+
+	if n < s {
+		// If we didn't read the expected number of bytes, seek back to the
+		// previous position in the file and return an error.
+		if _, err := f.Seek(int64(-n), os.SEEK_CUR); err != nil {
+			panic(err)
+		}
+		panic(io.ErrUnexpectedEOF)
+	}
+
+	return binary.BigEndian.Uint16(buf)
+}
+
+func read3BytesBE(f io.ReadSeeker) int {
+	b := make([]byte, 3)
+	f.Read(b)
+	return int(uint(b[2]) | uint(b[1])<<8 | uint(b[0])<<16)
 }
 
 func readString(f *os.File) string {
@@ -68,7 +110,8 @@ func iterateDirectory(f *os.File, iterStart uint32, count uint32, namesOffset in
 		f.Read(fType)
 		isDir := fType[0] & 1 & 1
 
-		nameOffset := int64(readInt(f, 3)) + namesOffset
+		nameOffset := int64(read3BytesBE(f)) + namesOffset
+
 		origOffset, _ := f.Seek(0, os.SEEK_CUR)
 		f.Seek(int64(nameOffset), os.SEEK_SET)
 		fName := readString(f)
@@ -76,15 +119,16 @@ func iterateDirectory(f *os.File, iterStart uint32, count uint32, namesOffset in
 
 		fOffset := readInt(f, 4)
 		fSize := readInt(f, 4)
-		fFlags := readInt(f, 2)
+		fFlags := readInt16(f, 2)
 		if fFlags&4 != 4 {
 			fOffset <<= 5
 		}
 
-		contentIndex := readInt(f, 2)
+		contentIndex := readInt16(f, 2)
 
 		// this should be based on fFlags, but I'm not sure if there is a reliable way to determine this yet.
 		hasHashTree := contentRecords[contentIndex].contentType & 2
+
 		fRealOffset := fileChunkOffset(fOffset)
 		if hasHashTree == 0 {
 			fRealOffset = fOffset

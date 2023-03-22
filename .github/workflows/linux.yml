@@ -16,7 +16,7 @@ jobs:
       - name: Build
         run: |
           go mod download
-          go build ./src/...
+          go build ./src/main.go
           mv main godecrypt
 
       - name: Upload Linux Artifact
